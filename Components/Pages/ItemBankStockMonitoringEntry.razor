@@ -1,0 +1,428 @@
+@namespace ItemCode.Components.Pages
+
+@page "/ItemBankStockMonitoringEntry"
+@rendermode InteractiveServer
+@using System
+@using System.Collections.Generic
+@using System.Linq
+
+@using ItemCode.Models
+@using ItemCode.DAL
+@using ItemCode.Data
+@using ItemCode
+
+
+
+
+
+@inject ILogger<ItemBankStockMonitoringEntry> Logger
+@inject IJSRuntime JSRuntime
+@inject IHttpContextAccessor HttpContextAccessor
+
+<div>
+    <table style="width:100%"><tr><th class="caption">Item Bank Stock Monitoring Entry</th></tr></table>
+</div>
+
+<div style="margin-top:10px">
+    <table class="tableview" style="width:100%">
+        <tr>
+            <td class="title" style="width:12%">Stock Month</td>
+            <td style="width:88%">
+                <input type="month" id="mypStockMonth" value="@stockMonthValue" @onchange="StockMonthChanged" style="width:160px;" disabled="@isStockMonthDisabled" />
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <div style="margin-top:10px;margin-bottom:10px;text-align:center">
+                    <button @onclick="btnSearch_Click" class="btn btn-primary">
+                        <span class="rbSearch"></span> Search
+                    </button>
+                    @if (btnClearVisible)
+                    {
+                        <button @onclick="btnClear_Click" class="btn btn-secondary" style="margin-left:5px;">
+                            <span class="rbCancel"></span> Clear
+                        </button>
+                    }
+                </div>
+            </td>
+        </tr>
+        @if (panel1Visible)
+        {
+            <tr>
+                <td colspan="2">
+                    <table style="width:100%">
+                        <tr>
+                            <td>
+                                @if (itemBankList != null && itemBankList.Count > 0)
+                                {
+                                    <table style="width:100%" class="rgMasterTable">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:10%">No</th>
+                                                <th style="width:20%">Stock Code</th>
+                                                <th style="width:50%">Stock Name</th>
+                                                <th style="width:10%;text-align:center">Close</th>
+                                                <th style="width:10%;text-align:center">Quantity</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @{
+                                                string currentCategory = null;
+                                                int rowIndex = 0;
+                                            }
+                                            @foreach (var item in itemBankList)
+                                            {
+                                                if (currentCategory != item.Category)
+                                                {
+                                                    currentCategory = item.Category;
+                                                    <tr style="font-weight:bold;font-size:larger;color:black;">
+                                                        <td colspan="5">@item.Category</td>
+                                                    </tr>
+                                                }
+                                                var localIndex = rowIndex;
+                                                <tr>
+                                                    <td>@(rowIndex + 1)</td>
+                                                    <td class="itemColumn">@item.ItemCode</td>
+                                                    <td class="itemColumn">@item.ItemDesc</td>
+                                                    <td style="text-align:center">
+                                                        <input type="checkbox" checked="@item.IsClose" disabled />
+                                                    </td>
+                                                    <td style="text-align:center">
+                                                        <input type="number"
+                                                               min="0"
+                                                               step="1"
+                                                               style="width:80px"
+                                                               value="@qtyValues[localIndex]"
+                                                               disabled="@item.IsClose"
+                                                               @onchange="e => QtyChanged(e, localIndex)" />
+                                                    </td>
+                                                </tr>
+                                                rowIndex++;
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                                else
+                                {
+                                    <p>No Item found.</p>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div style="margin-top:25px;margin-bottom:25px;text-align:center;width:100%">
+                                    @if (btnSaveVisible)
+                                    {
+                                        <button @onclick="btnSave_Click" class="btn btn-success" style="width:115px;">
+                                            <span class="rbSave"></span> Update
+                                        </button>
+                                    }
+                                    @if (btnConfirmVisible)
+                                    {
+                                        <button @onclick="btnConfirm_Click" class="btn btn-warning" style="width:175px;margin-left:5px;">
+                                            Submit As Final Figure
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        }
+    </table>
+</div>
+
+<script>
+    window.showAlert = function (message, title) {
+        alert(title + "\n" + message.replace(/<[^>]*>/g, ''));
+    };
+
+    window.showConfirm = function (message, dotNetRef) {
+        var result = confirm(message.replace(/<[^>]*>/g, ''));
+        if (result) {
+            dotNetRef.invokeMethodAsync('ConfirmCallBack');
+        }
+    };
+</script>
+
+@code {
+    private List<ItemCode.Models.ItemBankStockCardView> itemBankList = new List<ItemCode.Models.ItemBankStockCardView>();
+    private List<int> qtyValues = new List<int>();
+    private bool panel1Visible = false;
+    private bool btnClearVisible = false;
+    private bool btnSaveVisible = false;
+    private bool btnConfirmVisible = false;
+    private bool isStockMonthDisabled = false;
+    private string stockMonthValue = "";
+    private DateTime? selectedStockMonth = null;
+    private DotNetObjectReference<ItemBankStockMonitoringEntry> dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        selectedStockMonth = DateTime.Now.AddMonths(-1);
+        stockMonthValue = selectedStockMonth.Value.ToString("yyyy-MM");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+        }
+    }
+
+    private void StockMonthChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(value) && DateTime.TryParse(value + "-01", out var parsed))
+        {
+            selectedStockMonth = parsed;
+            stockMonthValue = value;
+        }
+    }
+
+    private void QtyChanged(ChangeEventArgs e, int index)
+    {
+        if (index >= 0 && index < qtyValues.Count)
+        {
+            if (int.TryParse(e.Value?.ToString(), out int qty))
+            {
+                qtyValues[index] = qty;
+            }
+            else
+            {
+                qtyValues[index] = 0;
+            }
+        }
+    }
+
+    private void ItemStkListBind()
+    {
+        try
+        {
+            POSManager pm = new POSManager();
+            byte stockMonth = 0;
+            short stockYear = 0;
+
+            if (selectedStockMonth.HasValue)
+            {
+                stockMonth = (byte)selectedStockMonth.Value.Month;
+                stockYear = (short)selectedStockMonth.Value.Year;
+            }
+
+            itemBankList = pm.GetItemBankAllList(stockMonth, stockYear, 0, 0);
+
+            qtyValues = new List<int>();
+            if (itemBankList != null)
+            {
+                foreach (var item in itemBankList)
+                {
+                    qtyValues.Add(item.ItemCount);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in ItemStkListBind");
+        }
+    }
+
+    private async Task btnSearch_Click()
+    {
+        try
+        {
+            ItemStkListBind();
+            await CheckCloseStock();
+            panel1Visible = true;
+            btnClearVisible = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in btnSearch_Click");
+        }
+    }
+
+    private async Task CheckCloseStock()
+    {
+        try
+        {
+            POSManager wm = new POSManager();
+            string locCode = "HQ";
+            byte stockMonth = 0;
+            short stockYear = 0;
+
+            if (selectedStockMonth.HasValue)
+            {
+                stockMonth = (byte)selectedStockMonth.Value.Month;
+                stockYear = (short)selectedStockMonth.Value.Year;
+            }
+
+            var resultList = wm.IsCloseItemBankStockCardRaw(locCode, stockMonth, stockYear);
+            if (resultList != null && resultList.Count > 0)
+            {
+                await JSRuntime.InvokeVoidAsync("showAlert",
+                    "<b>This location already closed.Update Qty record are not allowed.</b>",
+                    "Item Bank Count Monitoring Entry");
+                btnSaveVisible = false;
+                btnConfirmVisible = false;
+            }
+            else
+            {
+                btnSaveVisible = true;
+                btnConfirmVisible = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in CheckCloseStock");
+        }
+    }
+
+    private void btnClear_Click()
+    {
+        btnClearVisible = false;
+        panel1Visible = false;
+    }
+
+    private async Task btnSave_Click()
+    {
+        try
+        {
+            ItemCode.Models.LoginInfo li = GetLoginInfo();
+            if (li != null)
+            {
+            var itemBankCardRawList = new List<ItemCode.Models.ItemBankStockCardRaw>();
+                itemBankCardRawList = GetSaveData_itemBankCardRawList(itemBankCardRawList, li);
+
+                POSManager pm = new POSManager();
+                if (pm.DoUpdateItemBankCardRaw(itemBankCardRawList))
+                {
+                    await JSRuntime.InvokeVoidAsync("showAlert",
+                        "<b>Item Bank Update Successfully.</b>",
+                        "Item Bank Count Monitoring Entry");
+                    ItemStkListBind();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("showAlert",
+                        "<b>Failed to Update. Please try again later.</b>",
+                        "Failed To Update");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in btnSave_Click");
+        }
+    }
+
+    private async Task btnConfirm_Click()
+    {
+        try
+        {
+            if (selectedStockMonth.HasValue)
+            {
+                string msg = "";
+                msg += "Item Month :" + selectedStockMonth.Value.Month.ToString() + "\n";
+                msg += "Item Year :" + selectedStockMonth.Value.Year.ToString() + "\n";
+                msg += "Are you sure want to close it as your final stock quantity figure ?";
+                await JSRuntime.InvokeVoidAsync("showConfirm", msg, dotNetRef);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in btnConfirm_Click");
+        }
+    }
+
+    [JSInvokable]
+    public async Task ConfirmCallBack()
+    {
+        try
+        {
+            ItemCode.Models.LoginInfo li = GetLoginInfo();
+            if (li != null)
+            {
+                var itemCardRawMaster = new ItemCode.Models.ItemBankStockCardRawMaster();
+                itemCardRawMaster = GetSaveData_ItemCardRawMaster(itemCardRawMaster, li);
+
+                POSManager pm = new POSManager();
+        if (pm.DoConfirmItemCardRawFigure(itemCardRawMaster))
+                {
+                    await JSRuntime.InvokeVoidAsync("showAlert",
+                        "<b>Item Bank Successfully submit as final figure.</b>",
+                        "Item Bank Count Monitoring Entry");
+                    btnConfirmVisible = false;
+                    btnSaveVisible = false;
+                    ItemStkListBind();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("showAlert",
+                        "<b>Failed to Submit. Please try again later.</b>",
+                        "Failed To Submit");
+                }
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in ConfirmCallBack");
+        }
+    }
+
+    private List<ItemCode.Models.ItemBankStockCardRaw> GetSaveData_itemBankCardRawList(List<ItemCode.Models.ItemBankStockCardRaw> itemCardRawList, ItemCode.Models.LoginInfo li)
+    {
+        if (itemBankList == null) return itemCardRawList;
+
+        for (int i = 0; i < itemBankList.Count; i++)
+        {
+            var item = itemBankList[i];
+            int qty = (i < qtyValues.Count) ? qtyValues[i] : 0;
+
+            ItemCode.Models.ItemBankStockCardRaw det = new ItemCode.Models.ItemBankStockCardRaw();
+            det.Location = item.LocCode;
+            det.ItemBankCategory = item.Category;
+            det.ItemBankCode = item.ItemCode;
+            det.ItemBankMonth = (byte)item.ItemMonth;
+            det.ItemBankYear = (short)item.ItemYear;
+            det.ItemBankCount = qty;
+            itemCardRawList.Add(det);
+        }
+        return itemCardRawList;
+    }
+
+    private ItemCode.Models.ItemBankStockCardRawMaster GetSaveData_ItemCardRawMaster(ItemCode.Models.ItemBankStockCardRawMaster itemCardRawMaster, ItemCode.Models.LoginInfo li)
+    {
+        itemCardRawMaster.Location = "HQ";
+        itemCardRawMaster.ItemBankMonth = (byte)selectedStockMonth.Value.Month;
+        itemCardRawMaster.ItemBankYear = (short)selectedStockMonth.Value.Year;
+        itemCardRawMaster.IsClose = true;
+        itemCardRawMaster.Creator = li.UserID;
+        itemCardRawMaster.CreateDate = DateTime.Now;
+        return itemCardRawMaster;
+    }
+
+    private ItemCode.Models.LoginInfo GetLoginInfo()
+    {
+        try
+        {
+            var httpContext = HttpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                return SystemSecurity.getSession(httpContext, "login") as ItemCode.Models.LoginInfo;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error retrieving login info");
+        }
+        return null;
+    }
+
+    public void Dispose()
+    {
+        dotNetRef?.Dispose();
+    }
+}

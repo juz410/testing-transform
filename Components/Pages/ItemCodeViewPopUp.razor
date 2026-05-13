@@ -1,0 +1,197 @@
+@namespace ItemCode.Components.Pages.ItemCodeViewPopUp
+
+@page "/ItemCodeViewPopUp"
+@using ItemCode
+@using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Logging
+@inject ILogger<ItemCodeViewPopUp> Logger
+@inject NavigationManager NavigationManager
+
+<PageTitle>Item Code View Info</PageTitle>
+
+<link href="../../../css/body.css" rel="stylesheet" type="text/css" />
+
+<div style="margin-top: 5px">
+    <table class="tableview">
+        <tr>
+            <td style="width: 80%">
+                <table class="tableview" style="margin-top: -90px">
+                    <tr>
+                        <td class="title">Item Code</td>
+                        <td>
+                            <input type="text" value="@txtItemCode" readonly style="width:100%; border-width:0" />
+                        </td>
+                        <td class="title">Item Group Type</td>
+                        <td>
+                            <input type="text" value="@txtItemGroupCode" readonly style="width:100%; border-width:0" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">Item Desc</td>
+                        <td colspan="5">
+                            <input type="text" value="@txtItemDesc" readonly style="width:100%; border-width:0" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">Unit Price</td>
+                        <td>
+                            <input type="text" value="@txtUnitPrice" readonly style="width:100%; border-width:0" />
+                        </td>
+                        <td class="title">Unit Tax</td>
+                        <td>
+                            <input type="text" value="@txtUnitTax" readonly style="width:100%; border-width:0" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">Current Quantity</td>
+                        <td>
+                            <input type="text" value="@txtCurQty" readonly style="width:100%; border-width:0" />
+                        </td>
+                        <td class="title">Price</td>
+                        <td>
+                            <input type="text" value="@txtTotalPrice" readonly style="width:100%; border-width:0" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">SQL Acc Code</td>
+                        <td>
+                            <input type="text" value="@txtSQLAccCode" readonly style="width:100%; border-width:0" />
+                        </td>
+                        <td class="title">SQL Acc Tax Code</td>
+                        <td>
+                            <input type="text" value="@txtSQLAccTaxCode" readonly style="width:100%; border-width:0" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">System</td>
+                        <td colspan="5">
+                            <input type="checkbox" checked="@BtnWebChecked" disabled /> <label>Web/Admin</label>
+                            <input type="checkbox" checked="@BtnLoverChecked" disabled /> <label>Cuckoo Lover</label>
+                            <input type="checkbox" checked="@BtnLSDChecked" disabled /> <label>LSD</label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">Is Self Pick Up</td>
+                        <td colspan="1">
+                            <input type="checkbox" checked="@ChkSelfPickUpChecked" disabled />
+                        </td>
+                        <td class="title">Is By Delivery</td>
+                        <td>
+                            <input type="checkbox" checked="@ChkDeliveryChecked" disabled />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="title">Remark</td>
+                        <td colspan="4">
+                            <textarea rows="3" readonly style="width:100%">@txtRemark</textarea>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+            <td style="width: 20%">
+                <table class="tableview">
+                    <tr>
+                        <td>
+                            @if (!string.IsNullOrEmpty(imageUrl))
+                            {
+                                <img src="@imageUrl" height="250px" width="250px" style="vertical-align:middle" alt="Item Image" />
+                            }
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+
+@code {
+    private string txtItemCode = string.Empty;
+    private string txtItemGroupCode = string.Empty;
+    private string txtItemDesc = string.Empty;
+    private string txtUnitPrice = string.Empty;
+    private string txtUnitTax = string.Empty;
+    private string txtCurQty = string.Empty;
+    private string txtTotalPrice = string.Empty;
+    private string txtSQLAccCode = string.Empty;
+    private string txtSQLAccTaxCode = string.Empty;
+    private string txtRemark = string.Empty;
+    private string imageUrl = string.Empty;
+
+    private bool BtnWebChecked = false;
+    private bool BtnLoverChecked = false;
+    private bool BtnLSDChecked = false;
+    private bool ChkSelfPickUpChecked = false;
+    private bool ChkDeliveryChecked = false;
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("ItemCode", out var itemCodeValue))
+        {
+            string itemCode = itemCodeValue.ToString();
+            LoadItemCode(itemCode);
+        }
+    }
+
+    private void LoadItemCode(string ItemCode)
+    {
+        try
+        {
+            List<ItemGrpCodeView> ItemList = new List<ItemGrpCodeView>();
+            POSManager pm = new POSManager();
+            ItemList = pm.getItemCodeList(ItemCode, "", null, null, null, null, 0, 0);
+            var R = ItemList.FirstOrDefault();
+            if (R != null)
+            {
+                txtItemCode = R.ItemCode;
+                txtItemDesc = R.ItemDescription;
+                txtRemark = R.ItemRemark;
+                txtCurQty = R.Qty.ToString();
+                txtUnitPrice = R.UnitPrice.ToString();
+                txtUnitTax = R.UnitPriceTax.ToString();
+                txtTotalPrice = R.UnitTotalPrice.ToString();
+                imageUrl = R.DetItemID >= 136 ? @"https://admin.cuckoo.com.my" + R.ImageUrl : R.ImageUrl;
+                txtItemGroupCode = R.ItemGrpName;
+
+                if (R.IsAllowWeb == 1 && R.IsAllowCLover == 1 && R.IsAllowLSD == 1)
+                {
+                    BtnWebChecked = true;
+                    BtnLoverChecked = true;
+                    BtnLSDChecked = true;
+                }
+                else if (R.IsAllowWeb == 1 && R.IsAllowCLover == 1)
+                {
+                    BtnWebChecked = true;
+                    BtnLoverChecked = true;
+                }
+                else if (R.IsAllowWeb == 1 && R.IsAllowLSD == 1)
+                {
+                    BtnWebChecked = true;
+                    BtnLSDChecked = true;
+                }
+                else if (R.IsAllowCLover == 1 && R.IsAllowLSD == 1)
+                {
+                    BtnLoverChecked = true;
+                    BtnLSDChecked = true;
+                }
+                else if (R.IsAllowWeb == 1)
+                    BtnWebChecked = true;
+                else if (R.IsAllowLSD == 1)
+                    BtnLSDChecked = true;
+                else if (R.IsAllowCLover == 1)
+                    BtnLoverChecked = true;
+
+                txtSQLAccCode = R.SQLAccAccountCode;
+                txtSQLAccTaxCode = R.SQLAccTaxCode;
+
+                ChkSelfPickUpChecked = R.IsSelfPickUp == true;
+                ChkDeliveryChecked = R.isDelivery == true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading item code: {ItemCode}", ItemCode);
+        }
+    }
+}

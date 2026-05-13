@@ -1,0 +1,421 @@
+@namespace ItemCode.Components.Pages.ItemCodeSearch
+
+@page "/ItemCodeSearch"
+@rendermode InteractiveServer
+@using System.Globalization
+@using ItemCode.POS
+@using ItemCode.POS.ViewModels
+
+
+
+
+
+@inject ILogger<ItemCodeSearch> Logger
+
+<div>
+    <table style="width: 100%">
+        <tr>
+            <th class="caption">Item Code Search</th>
+        </tr>
+    </table>
+</div>
+
+<table class="tableview">
+    <tr>
+        <td class="title" style="width: 12%">Item Type</td>
+        <td style="width: 21%">
+            <select multiple style="width: 100%" @onchange="ItemTypeSelectionChanged">
+                <option value="">-- Item Type --</option>
+                @foreach (var item in ItemGrpList)
+                {
+                    <option value="@item.ItemGrpID">@item.ItemGrpDesc</option>
+                }
+            </select>
+        </td>
+        <td class="title" style="width: 12%">Item Code</td>
+        <td style="width: 21%">
+            <input type="text" style="width: 100%" placeholder="Item Code" @bind="txtItemCode" />
+        </td>
+        <td class="title" style="width: 12%">Item Desc</td>
+        <td style="width: 22%">
+            <input type="text" style="width: 100%" placeholder="Item Description" @bind="txtItemDesc" />
+        </td>
+    </tr>
+    <tr>
+        <td class="title" style="width: 12%">Is SR Item Bank</td>
+        <td>
+            <select multiple style="width: 100%" @onchange="NESelectionChanged">
+                <option value="">-- SR ITEM BANK --</option>
+                <option value="1">True</option>
+                <option value="0">False</option>
+            </select>
+        </td>
+        <td class="title" style="width: 12%">Is LSD Item Bank</td>
+        <td>
+            <select multiple style="width: 100%" @onchange="LSDSelectionChanged">
+                <option value="">-- LSD ITEM BANK --</option>
+                <option value="1">True</option>
+                <option value="0">False</option>
+            </select>
+        </td>
+    </tr>
+</table>
+
+<div style="margin-top: 10px">
+    <div style="margin-bottom: 5px; text-align: right; height: 40px;">
+        <button @onclick="SearchClick" style="margin-right: 4px;">&#128269; Search</button>
+        <button @onclick="ClearClick" style="margin-right: 4px;">&#10006; Clear</button>
+        <button @onclick="ExportClick">&#128438; Export To Excel</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(alertMessage))
+    {
+        <div class="alert alert-warning" style="margin-bottom: 10px;">
+            <strong>@((MarkupString)alertMessage)</strong>
+            <button @onclick="() => alertMessage = string.Empty" style="float:right;">X</button>
+        </div>
+    }
+
+    <table class="table table-bordered table-hover" style="width: 100%; table-layout: fixed;">
+        <thead>
+            <tr>
+                <th style="width: 5%">No.</th>
+                <th style="width: 10%">Division</th>
+                <th style="width: 10%">Item Group</th>
+                <th style="width: 10%">Item Code</th>
+                <th style="width: 10%">Item Desc</th>
+                <th style="width: 45%">Item Remark</th>
+                <th style="width: 5%">Qty</th>
+                <th style="width: 5%"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (resultList == null || resultList.Count == 0)
+            {
+                <tr>
+                    <td colspan="8" style="text-align:center;">No Item Code Found.</td>
+                </tr>
+            }
+            else
+            {
+                int rowIndex = (currentPageIndex * pageSize) + 1;
+                @foreach (var item in resultList)
+                {
+                    var capturedItem = item;
+                    <tr>
+                        <td>@rowIndex</td>
+                        <td>@item.IsDivStr</td>
+                        <td>@item.ItemGrpName</td>
+                        <td>@item.ItemCode</td>
+                        <td>@item.ItemDescription</td>
+                        <td>@item.ItemRemark</td>
+                        <td>@item.Qty</td>
+                        <td>
+                            <button @onclick="() => ActionClick(capturedItem.ItemCode)">&#128065;</button>
+                        </td>
+                    </tr>
+                    rowIndex++;
+                }
+            }
+        </tbody>
+    </table>
+
+    <div style="text-align: center; margin-top: 8px;">
+        <button @onclick="PreviousPage" disabled="@(currentPageIndex == 0)">&#9664; Prev</button>
+        <span style="margin: 0 10px;">Page @(currentPageIndex + 1) of @TotalPages</span>
+        <button @onclick="NextPage" disabled="@(currentPageIndex >= TotalPages - 1)">Next &#9654;</button>
+        <span style="margin-left: 15px;">Page Size:
+            <select @onchange="PageSizeChanged" style="width: 70px;">
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+        </span>
+    </div>
+</div>
+
+@if (showActionDialog)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 7200;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; width: 500px; min-height: 300px; padding: 20px; border: 1px solid #ccc;">
+            <h4>What Would You Like To Do ?</h4>
+            <div style="margin-top: 5px; margin-bottom: 5px;">
+                <table style="width: 100%">
+                    <tr>
+                        <td>
+                            <input type="text" readonly style="width: 100%; border: 0;" value="You have selected : " />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" readonly style="width: 100%; background-color: #F8F8F8; font-size: 12pt; font-weight: bold;" value="@selectedItemCode" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" readonly style="width: 100%; border: 0;" value="What would you like to do ?" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <select style="width: 100%" @onchange="ActionSelectionChanged">
+                                <option value="View" selected>View Item</option>
+                                <option value="Adjust">Do Item Adjustment</option>
+                                <option value="Edit">Edit Item</option>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+                <table style="width: 100%; margin-top: 10px">
+                    <tr>
+                        <td style="text-align: center">
+                            <button @onclick="ProceedClick">&#9654; Proceed</button>
+                            <button @onclick="() => showActionDialog = false" style="margin-left: 8px;">&#10006; Close</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showPopupDialog)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 7300;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; width: 900px; height: 500px; border: 1px solid #ccc; overflow: hidden;">
+            <div style="text-align: right; padding: 4px;">
+                <button @onclick="ClosePopup">&#10006; Close</button>
+            </div>
+            <iframe src="@popupNavigateUrl" style="width: 100%; height: 460px; border: none;"></iframe>
+        </div>
+    </div>
+}
+
+@code {
+    DateTime defaultDate = DateTime.ParseExact("01/01/1900", "MM/dd/yyyy", CultureInfo.InvariantCulture);
+
+    private List<ItemCode.POS.ItemGrpMaster> ItemGrpList = new List<ItemCode.POS.ItemGrpMaster>();
+    private List<ItemCode.POS.ItemCodeView> resultList = new List<ItemCode.POS.ItemCodeView>();
+
+    private string txtItemCode = string.Empty;
+    private string txtItemDesc = string.Empty;
+
+    private List<string> selectedItemTypeList = new List<string>();
+    private List<string> selectedNEList = new List<string>();
+    private List<string> selectedLSDList = new List<string>();
+
+    private int currentPageIndex = 0;
+    private int pageSize = 10;
+    private int totalCount = 0;
+
+    private bool showActionDialog = false;
+    private bool showPopupDialog = false;
+    private string selectedItemCode = string.Empty;
+    private string selectedAction = "View";
+    private string popupNavigateUrl = string.Empty;
+    private string alertMessage = string.Empty;
+
+    private int TotalPages => totalCount == 0 ? 1 : (int)Math.Ceiling((double)totalCount / pageSize);
+
+    protected override void OnInitialized()
+    {
+        LoadList();
+        ItemCodeListBind(0);
+    }
+
+    private void LoadList()
+    {
+        try
+        {
+            POSManager pm = new POSManager();
+            ItemGrpList = pm.GetItemGrpMaster();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading item group list.");
+        }
+    }
+
+    private void ItemCodeListBind(int pageIndex)
+    {
+        try
+        {
+            currentPageIndex = pageIndex;
+            POSManager psm = new POSManager();
+
+            string itemCode = string.IsNullOrWhiteSpace(txtItemCode) ? "" : txtItemCode.Trim().ToUpper();
+            string itemDesc = string.IsNullOrWhiteSpace(txtItemDesc) ? "" : txtItemDesc.Trim().ToUpper();
+
+            resultList = psm.getItemCodeList(itemCode, itemDesc, selectedItemTypeList, selectedNEList, selectedLSDList, null, currentPageIndex, pageSize);
+            totalCount = (resultList == null || resultList.Count == 0) ? 0 : resultList[0].TotalCount;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading item code list.");
+            resultList = new List<ItemCodeView>();
+            totalCount = 0;
+        }
+    }
+
+    private void ItemTypeSelectionChanged(ChangeEventArgs e)
+    {
+        selectedItemTypeList = GetMultiSelectValues(e);
+    }
+
+    private void NESelectionChanged(ChangeEventArgs e)
+    {
+        selectedNEList = GetMultiSelectValues(e);
+    }
+
+    private void LSDSelectionChanged(ChangeEventArgs e)
+    {
+        selectedLSDList = GetMultiSelectValues(e);
+    }
+
+    private void ActionSelectionChanged(ChangeEventArgs e)
+    {
+        selectedAction = e.Value?.ToString() ?? "View";
+    }
+
+    private void PageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int newSize))
+        {
+            pageSize = newSize;
+            currentPageIndex = 0;
+            ItemCodeListBind(0);
+        }
+    }
+
+    private List<string> GetMultiSelectValues(ChangeEventArgs e)
+    {
+        var result = new List<string>();
+        if (e.Value is string[] values)
+        {
+            result.AddRange(values.Where(v => !string.IsNullOrEmpty(v)));
+        }
+        else if (e.Value is string singleValue && !string.IsNullOrEmpty(singleValue))
+        {
+            result.Add(singleValue);
+        }
+        return result;
+    }
+
+    private void SearchClick()
+    {
+        currentPageIndex = 0;
+        totalCount = 0;
+        ItemCodeListBind(0);
+    }
+
+    private void ClearClick()
+    {
+        ClearField();
+    }
+
+    private void ExportClick()
+    {
+        if (resultList != null && resultList.Count > 0)
+        {
+            DoExport();
+        }
+        else
+        {
+            alertMessage = "<b>No record to export.</b>";
+        }
+    }
+
+    private void ActionClick(string itemCode)
+    {
+        selectedItemCode = itemCode;
+        selectedAction = "View";
+        showActionDialog = true;
+    }
+
+    private void ProceedClick()
+    {
+        showActionDialog = false;
+        string selection = selectedItemCode.Trim();
+
+        if (selectedAction == "Adjust")
+        {
+            popupNavigateUrl = "/Sales/POS/ItemCode/ItemCodeAdjustmentEntry?ItemCode=" + selection;
+            showPopupDialog = true;
+        }
+        else if (selectedAction == "View")
+        {
+            popupNavigateUrl = "/Sales/POS/ItemCode/ItemCodeViewPopUp?ItemCode=" + selection;
+            showPopupDialog = true;
+        }
+        else if (selectedAction == "Edit")
+        {
+            popupNavigateUrl = "/Sales/POS/ItemCode/ItemCodeEditPopUp?ItemCode=" + selection;
+            showPopupDialog = true;
+        }
+    }
+
+    private void ClosePopup()
+    {
+        showPopupDialog = false;
+        popupNavigateUrl = string.Empty;
+        ItemCodeListBind(currentPageIndex);
+    }
+
+    private void PreviousPage()
+    {
+        if (currentPageIndex > 0)
+        {
+            ItemCodeListBind(currentPageIndex - 1);
+        }
+    }
+
+    private void NextPage()
+    {
+        if (currentPageIndex < TotalPages - 1)
+        {
+            ItemCodeListBind(currentPageIndex + 1);
+        }
+    }
+
+    private void DoExport()
+    {
+        try
+        {
+            POSManager psm = new POSManager();
+            string itemCode = string.IsNullOrWhiteSpace(txtItemCode) ? "" : txtItemCode.Trim().ToUpper();
+            string itemDesc = string.IsNullOrWhiteSpace(txtItemDesc) ? "" : txtItemDesc.Trim().ToUpper();
+
+            var exportList = psm.getItemCodeList(itemCode, itemDesc, selectedItemTypeList, selectedNEList, selectedLSDList, null, 0, int.MaxValue);
+
+            if (exportList == null || exportList.Count == 0)
+            {
+                alertMessage = "<b>No record to export.</b>";
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Division\tItem Group\tItem Code\tItem Desc\tItem Remark\tQty");
+            foreach (var row in exportList)
+            {
+                sb.AppendLine($"{row.IsDivStr}\t{row.ItemGrpName}\t{row.ItemCode}\t{row.ItemDescription}\t{row.ItemRemark}\t{row.Qty}");
+            }
+
+            Logger.LogInformation("Export to Excel triggered for ItemCodeList.");
+            alertMessage = "<b>Export functionality requires server-side file download integration. Data prepared successfully.</b>";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during export.");
+            alertMessage = "<b>Error during export. Please try again.</b>";
+        }
+    }
+
+    private void ClearField()
+    {
+        txtItemCode = string.Empty;
+        txtItemDesc = string.Empty;
+        selectedItemTypeList = new List<string>();
+        selectedNEList = new List<string>();
+        selectedLSDList = new List<string>();
+    }
+}

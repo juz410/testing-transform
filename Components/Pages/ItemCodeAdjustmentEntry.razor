@@ -1,0 +1,373 @@
+@namespace ItemCode.Components.Pages
+
+@page "/ItemCodeAdjustmentEntry"
+@rendermode InteractiveServer
+@using System.Globalization
+
+
+
+
+@using ItemCode
+
+
+
+
+
+@using Microsoft.AspNetCore.Http
+
+
+
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+@inject ILogger<ItemCodeAdjustmentEntry> Logger
+
+<PageTitle>Do Item Adjustment</PageTitle>
+
+<link href="../../../css/body.css" rel="stylesheet" type="text/css" />
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="modal" style="display:block; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.4);">
+        <div class="modal-dialog" style="margin:10% auto; background:#fff; padding:20px; width:480px; border-radius:4px;">
+            <div class="modal-header">
+                <h4>@alertTitle</h4>
+            </div>
+            <div class="modal-body">
+                @((MarkupString)alertMessage)
+            </div>
+            <div class="modal-footer" style="text-align:center; margin-top:15px;">
+                <button class="btn btn-primary" @onclick="CloseAlert">OK</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div style="margin-top:5px">
+    <table class="tableview">
+        <tr>
+            <td class="title" style="width:12%">Item Code</td>
+            <td style="width:38%">
+                <input type="text" style="width:100%; border-width:0;" readonly value="@txtItemCode" />
+            </td>
+            <td class="title" style="width:12%">Item Desc</td>
+            <td style="width:38%">
+                <input type="text" style="width:100%; border-width:0;" readonly value="@txtItemDesc" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Adjustment Type</td>
+            <td>
+                <select style="width:150px;" value="@selectedAdjType" @onchange="cmbAdjType_SelectedIndexChanged">
+                    <option value="">-- Adjustment Type --</option>
+                    <option value="118">Stock In</option>
+                    <option value="119">Stock Out</option>
+                </select>
+            </td>
+            <td class="title">Reason Type</td>
+            <td>
+                <select style="width:200px;" value="@selectedReason" @onchange="ReasonSelectionChanged">
+                    <option value="">-- Adjustment Reason --</option>
+                    @foreach (var item in reasonList)
+                    {
+                        <option value="@item.CodeID">@item.Description</option>
+                    }
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Current Quantity</td>
+            <td>
+                <input type="text" style="width:100%; border-width:0;" readonly value="@txtCurQty" />
+            </td>
+            <td class="title">Quantity</td>
+            <td>
+                <input type="number" style="width:100%;" placeholder="Adjustment Quantity" @bind="txtQuantity" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Remark</td>
+            <td colspan="4">
+                <textarea style="width:100%;" rows="3" @bind="txtRemark"></textarea>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                <div style="margin-top:20px; margin-bottom:20px; text-align:center;">
+                    <button class="btn btn-primary" @onclick="BtnSave_Click">
+                        <span class="rbSave"></span> Save
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-secondary" @onclick="BtnClear_Click">
+                        <span class="rbCancel"></span> Clear
+                    </button>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+@code {
+    DateTime defaultDate = DateTime.ParseExact("01/01/1900", "MM/dd/yyyy", CultureInfo.InvariantCulture);
+
+    private string txtItemCode = "";
+    private string txtItemDesc = "";
+    private string txtCurQty = "";
+    private string txtQuantity = "";
+    private string txtRemark = "";
+    private string selectedAdjType = "";
+    private string selectedReason = "";
+    private List<ItemCode.CodeView> reasonList = new List<ItemCode.CodeView>();
+
+    private string alertMessage = "";
+    private string alertTitle = "";
+
+    private string itemCodeParam = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uri = new Uri(NavigationManager.Uri);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+            if (query.TryGetValue("ItemCode", out var itemCodeValue))
+            {
+                itemCodeParam = itemCodeValue.ToString();
+                LoadItemCode(itemCodeParam);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during OnInitializedAsync");
+        }
+    }
+
+    private void LoadReasonStockInList()
+    {
+        try
+        {
+            global::ItemCode.CodeManager cm = new global::ItemCode.CodeManager();
+        List<ItemCode.CodeView> ReasonList = cm.GetReasonCode(11);
+        reasonList = ReasonList.Where(itm => itm.CodeID == 106 || itm.CodeID == 107).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading stock in reason list");
+        }
+    }
+
+    private void LoadReasonStockOutList()
+    {
+        try
+        {
+            global::ItemCode.CodeManager cm = new global::ItemCode.CodeManager();
+        List<ItemCode.CodeView> ReasonList = cm.GetReasonCode(11);
+        reasonList = ReasonList.Where(itm => itm.CodeID != 106).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading stock out reason list");
+        }
+    }
+
+    private void LoadItemCode(string ItemCode)
+    {
+        try
+        {
+            List<ItemGrpCodeView> ItemList = new List<ItemGrpCodeView>();
+            global::POSManager pm = new global::POSManager();
+            ItemList = pm.getItemCodeList(ItemCode, "", null, null, null, null, 0, 0);
+            var R = ItemList.FirstOrDefault();
+            if (R != null)
+            {
+                txtItemCode = R.ItemCode;
+                txtItemDesc = R.ItemDescription;
+                txtCurQty = R.Qty.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading item code: {ItemCode}", ItemCode);
+        }
+    }
+
+    private void BtnClear_Click()
+    {
+        ClearField();
+    }
+
+    private void BtnSave_Click()
+    {
+        try
+        {
+            global::ItemCode.LoginInfo li = global::ItemCode.SystemSecurity.getSession(HttpContextAccessor.HttpContext, "login") as global::ItemCode.LoginInfo;
+            if (li != null)
+            {
+                if (ValidRequiredField())
+                {
+                    global::ItemCode.ItemAdjMaster ItemAdjMaster = new global::ItemCode.ItemAdjMaster();
+                    ItemAdjMaster = GetSaveData_ItemAdjMaster(ItemAdjMaster, li);
+
+                    global::ItemCode.ItemAdjDetail ItemAdjDetail = new global::ItemCode.ItemAdjDetail();
+                    ItemAdjDetail = GetSaveData_ItemAdjDetail(ItemAdjDetail, li);
+
+                    global::POSManager pm = new global::POSManager();
+                    if (pm.DoSaveItemCodeAdjustment(ItemAdjMaster, ItemAdjDetail))
+                    {
+                        string msg = "";
+                        msg += "Item Code Adjustment Successfully Saved <br /><br />";
+                        msg += "Adjustment Number: " + ItemAdjMaster.ItemAdjNo + "<br />";
+                        ShowAlert("<b>" + msg + "</b>", "Item Code Adjustment");
+                        ClearField();
+                        LoadItemCode(itemCodeParam);
+                    }
+                    else
+                    {
+                        ShowAlert("<b>Failed to Save. Please try again later.</b>", "Failed To Save");
+                    }
+                }
+            }
+            else
+            {
+                ShowAlert("<b>Your login session was expired.<br />Please relogin to Cuckoo Web System.</b>", "Session Expired");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during BtnSave_Click");
+            ShowAlert("<b>An unexpected error occurred. Please try again later.</b>", "Error");
+        }
+    }
+
+    private void ClearField()
+    {
+        selectedAdjType = "";
+        selectedReason = "";
+        txtQuantity = "";
+        txtRemark = "";
+        reasonList = new List<ItemCode.CodeView>();
+    }
+
+    private bool ValidRequiredField()
+    {
+        bool valid = true;
+        string message = "";
+
+        if (string.IsNullOrEmpty(selectedAdjType))
+        {
+            valid = false;
+            message += "* Please select adjustment type.<br />";
+        }
+
+        if (string.IsNullOrEmpty(selectedReason))
+        {
+            valid = false;
+            message += "* Please select adjustment reason.<br />";
+        }
+
+        if (string.IsNullOrEmpty(txtQuantity.Trim()))
+        {
+            valid = false;
+            message += "* Please key the Quantity<br />";
+        }
+        else
+        {
+            if (Int16.Parse(txtQuantity.Trim()) < 0)
+            {
+                valid = false;
+                message += "* Mininum Qty must 1 or more than 1<br />";
+            }
+        }
+
+        if (!string.IsNullOrEmpty(selectedAdjType) && (!string.IsNullOrEmpty(txtQuantity.Trim())))
+        {
+            if (selectedAdjType == "119")
+            {
+                Int16 CurQty = Int16.Parse(txtCurQty);
+                Int16 AdjQty = Int16.Parse(txtQuantity);
+
+                if (CurQty - AdjQty < 0)
+                {
+                    valid = false;
+                    message += "* Current Quantity cannot below zero. Please re-key your quantity.<br />";
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(txtRemark.Trim()))
+        {
+            if (txtRemark.Trim().Length > 250)
+            {
+                valid = false;
+                message += "* Remarks cannot exceed 250 characters.<br />";
+            }
+        }
+
+        if (!valid)
+        {
+            ShowAlert("<b>" + message + "</b>", "Item Adjustment Summary");
+        }
+
+        return valid;
+    }
+
+    private global::ItemCode.ItemAdjMaster GetSaveData_ItemAdjMaster(global::ItemCode.ItemAdjMaster ItemAdjMaster, global::ItemCode.LoginInfo li)
+    {
+        ItemAdjMaster.ItemAdjNo = ""; // Update Later
+        ItemAdjMaster.ItemAdjTypeID = byte.Parse(selectedAdjType);
+        ItemAdjMaster.ReasonID = byte.Parse(selectedReason);
+        ItemAdjMaster.StatusID = 2;
+        ItemAdjMaster.Remark = txtRemark.Trim();
+        ItemAdjMaster.Creator = li.UserID;
+        ItemAdjMaster.CreateDate = DateTime.Now;
+        ItemAdjMaster.Updator = 0;
+        ItemAdjMaster.UpdateDate = defaultDate;
+        return ItemAdjMaster;
+    }
+
+    private global::ItemCode.ItemAdjDetail GetSaveData_ItemAdjDetail(global::ItemCode.ItemAdjDetail ItemAdjDetail, global::ItemCode.LoginInfo li)
+    {
+        byte itemNo = 1;
+        ItemAdjDetail.ItemAdjNo = ""; // Update Later
+        ItemAdjDetail.ItemNo = itemNo;
+        ItemAdjDetail.ItemCode = txtItemCode;
+        ItemAdjDetail.ItemDesc = txtItemDesc;
+        ItemAdjDetail.Qty = Int16.Parse(txtQuantity);
+        return ItemAdjDetail;
+    }
+
+    private void cmbAdjType_SelectedIndexChanged(ChangeEventArgs e)
+    {
+        selectedAdjType = e.Value?.ToString() ?? "";
+        selectedReason = "";
+
+        if (selectedAdjType == "118")
+        {
+            LoadReasonStockInList();
+        }
+        else if (selectedAdjType == "119")
+        {
+            LoadReasonStockOutList();
+        }
+        else
+        {
+            reasonList = new List<ItemCode.CodeView>();
+        }
+    }
+
+    private void ReasonSelectionChanged
+    {
+        selectedReason = e.Value?.ToString() ?? "";
+    }
+
+    private void ShowAlert(string message, string title)
+    {
+        alertMessage = message;
+        alertTitle = title;
+    }
+
+    private void CloseAlert()
+    {
+        alertMessage = "";
+        alertTitle = "";
+    }
+}

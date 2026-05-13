@@ -1,0 +1,535 @@
+@namespace ItemCode.Components.Pages.ItemCodeEditPopUp
+
+@page "/ItemCodeEditPopUp"
+@rendermode InteractiveServer
+@using System.IO
+@using System.Net.Http
+@using System.Net.Http.Headers
+
+
+@using Microsoft.AspNetCore.Components.Forms
+@using ItemCode.POS
+@using ItemCode.POS.Entity
+@using ItemCode.POS.DAO
+@using ItemCode.Utils
+@inject IHttpContextAccessor HttpContextAccessor
+
+
+
+
+
+
+@inject ILogger<ItemCodeEditPopUp> Logger
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<link href="../../../css/body.css" rel="stylesheet" type="text/css" />
+
+<script type="text/javascript">
+    function callBackFn(arg) {
+        return false;
+    }
+    function showAlert(message) {
+        alert(message);
+    }
+</script>
+
+<div style="margin-top: 5px">
+    <table class="tableview">
+        <tr>
+            <td class="title">Item Code</td>
+            <td>
+                <input type="text" id="txtItemCode" style="width:100%; border-width:0" readonly value="@txtItemCode" />
+            </td>
+            <td class="title">Item Group Type</td>
+            <td>
+                <select style="width:100%" value="@selectedItemGrpID" @onchange="ItemGroupTypeChanged">
+                    <option value="">-- Item Group Type --</option>
+                    @if (ItemGrpList != null)
+                    {
+                        @foreach (var item in ItemGrpList)
+                        {
+                            <option value="@item.ItemGrpID">@item.ItemGrpDesc</option>
+                        }
+                    }
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Item Desc</td>
+            <td colspan="5">
+                <input type="text" style="width:100%; border-width:0" @bind="txtDesc" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Unit Price</td>
+            <td>
+                <input type="text" style="width:100%; border-width:0" readonly value="@txtUnitPrice" />
+            </td>
+            <td class="title">Unit Tax</td>
+            <td>
+                <input type="text" style="width:100%; border-width:0" readonly value="@txtUnitTax" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Current Quantity</td>
+            <td>
+                <input type="number" style="width:100%" @bind="txtCurQty" />
+            </td>
+            <td class="title">Price</td>
+            <td>
+                <input type="number" step="0.01" style="width:100%" @bind="txtItemPrice" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title">ACC Code</td>
+            <td>
+                <input type="text" style="width:100%; border-width:0" @bind="txtACCCode" />
+            </td>
+            <td class="title">ACC Tax Code</td>
+            <td>
+                <input type="text" style="width:100%; border-width:0" @bind="txtTaxCode" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title">System</td>
+            <td colspan="5">
+                <label>
+                    <input type="checkbox" @bind="BtnWebChecked" disabled="@isFieldsDisabled" /> Web/Admin
+                </label>
+                &nbsp;
+                <label>
+                    <input type="checkbox" @bind="BtnLoverChecked" disabled="@isFieldsDisabled" /> Cuckoo Lover
+                </label>
+                &nbsp;
+                <label>
+                    <input type="checkbox" @bind="BtnLSDChecked" disabled="@isFieldsDisabled" /> LSD
+                </label>
+                &nbsp;
+                <label>
+                    <input type="checkbox" @bind="BtnWSTChecked" disabled="@isFieldsDisabled" /> WonderStar
+                </label>
+            </td>
+        </tr>
+        <tr>
+            <td class="title" style="width: 12%">Is Self Pick Up?</td>
+            <td style="width: 21%">
+                <label>
+                    <input type="radio" name="selfPickUp" value="yes" checked="@(BtnYesSelfPickUpChecked)"
+                           @onchange="() => SelfPickUpChanged(true)"
+                           disabled="@isFieldsDisabled" /> Yes
+                </label>
+                &nbsp;
+                <label>
+                    <input type="radio" name="selfPickUp" value="no" checked="@(BtnNoSelfPickUpChecked)"
+                           @onchange="() => SelfPickUpChanged(false)"
+                           disabled="@isFieldsDisabled" /> No
+                </label>
+            </td>
+            <td class="title" style="width: 12%">Is By Delivery?</td>
+            <td style="width: 21%">
+                <label>
+                    <input type="radio" name="delivery" value="yes" checked="@(BtnYesDeliveryChecked)"
+                           @onchange="() => DeliveryChanged(true)"
+                           disabled="@isFieldsDisabled" /> Yes
+                </label>
+                &nbsp;
+                <label>
+                    <input type="radio" name="delivery" value="no" checked="@(BtnNoDeliveryChecked)"
+                           @onchange="() => DeliveryChanged(false)"
+                           disabled="@isFieldsDisabled" /> No
+                </label>
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Remark</td>
+            <td colspan="4">
+                <textarea style="width:100%" rows="3" readonly>@txtRemark</textarea>
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Re-Upload Image</td>
+            <td colspan="4">
+                @if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    <img src="@imageUrl" height="250" width="250" style="vertical-align:middle" alt="Item Image" />
+                }
+                <InputFile OnChange="OnFileSelected" accept=".jpg" />
+                <span style="font-size: 8pt; color: #545454; margin-top: 4px">
+                    Allowed file extension : .jpg || File size : &lt; 3.5MB || Width X Height Must Be 250 pixels
+                </span>
+            </td>
+        </tr>
+        <tr>
+            <td class="title">Enable?</td>
+            <td>
+                <input type="checkbox" @bind="cbEnabled" />
+            </td>
+        </tr>
+        <tr>
+            <td class="title"></td>
+            <td colspan="3" style="text-align: center">
+                <button @onclick="btnEdit_Click">Edit Item Code</button>
+            </td>
+        </tr>
+    </table>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="alert-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center;">
+        <div style="background:white;padding:20px;border-radius:5px;min-width:450px;max-width:500px;text-align:center;">
+            <h4>@alertTitle</h4>
+            <p>@((MarkupString)alertMessage)</p>
+            <button @onclick="CloseAlert" style="margin-top:10px;">OK</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "ItemCode")]
+    public string ItemCodeParam { get; set; }
+
+    // Field values
+    private string txtItemCode { get; set; } = "";
+    private string txtDesc { get; set; } = "";
+    private string txtUnitPrice { get; set; } = "";
+    private string txtUnitTax { get; set; } = "";
+    private string txtCurQty { get; set; } = "";
+    private string txtItemPrice { get; set; } = "";
+    private string txtACCCode { get; set; } = "";
+    private string txtTaxCode { get; set; } = "";
+    private string txtRemark { get; set; } = "";
+    private string imageUrl { get; set; } = "";
+
+    // Hidden fields
+    private string hiddenItemGrpID { get; set; } = "";
+    private string HiddenFieldName { get; set; } = "";
+    private string HiddenDay { get; set; } = "";
+    private string HiddenMonth { get; set; } = "";
+    private string HiddenYear { get; set; } = "";
+
+    // Toggle/Checkbox states
+    private bool BtnWebChecked { get; set; } = false;
+    private bool BtnLoverChecked { get; set; } = false;
+    private bool BtnLSDChecked { get; set; } = false;
+    private bool BtnWSTChecked { get; set; } = false;
+    private bool BtnYesSelfPickUpChecked { get; set; } = false;
+    private bool BtnNoSelfPickUpChecked { get; set; } = false;
+    private bool BtnYesDeliveryChecked { get; set; } = false;
+    private bool BtnNoDeliveryChecked { get; set; } = false;
+    private bool cbEnabled { get; set; } = true;
+
+    // Combo box
+    private string selectedItemGrpID { get; set; } = "";
+    private List<ItemGrpMView> ItemGrpList { get; set; } = new List<ItemGrpMView>();
+
+    // UI state
+    private bool isFieldsDisabled { get; set; } = false;
+    private string alertMessage { get; set; } = "";
+    private string alertTitle { get; set; } = "";
+
+    // File upload
+    private IBrowserFile selectedFile { get; set; }
+    private const long MaxFileSize = 3600000;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(ItemCodeParam))
+            {
+                await LoadItemCode(ItemCodeParam);
+                LoadList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during OnInitializedAsync");
+        }
+    }
+
+    private void LoadList()
+    {
+        try
+        {
+            POSManager pm = new POSManager();
+            ItemGrpList = pm.GetItemGrpMaster() ?? new List<ItemGrpCodeMView>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading item group list");
+        }
+    }
+
+    private async Task LoadItemCode(string itemCode)
+    {
+        try
+        {
+            POSManager pm = new POSManager();
+            ItemGrpCodeView ItemList = pm.getItemCode(itemCode);
+            if (ItemList == null) return;
+
+            hiddenItemGrpID = ItemList.ItemGrpID.ToString();
+            selectedItemGrpID = ItemList.ItemGrpID.ToString();
+            txtItemCode = ItemList.ItemCode ?? "";
+            txtDesc = ItemList.ItemDescription ?? "";
+            txtACCCode = ItemList.AccAccountCode ?? "";
+            txtTaxCode = ItemList.AccTaxCode ?? "";
+            txtItemPrice = ItemList.UnitTotalPrice.ToString();
+            txtUnitPrice = ItemList.UnitPrice.ToString();
+            txtUnitTax = ItemList.UnitPriceTax.ToString();
+            txtCurQty = ItemList.Qty.ToString();
+            txtRemark = ItemList.ItemRemark ?? "";
+            imageUrl = ItemList.DetItemID >= 132
+                ? @"https://admin.cuckoo.com.my" + ItemList.ImageUrl
+                : ItemList.ImageUrl ?? "";
+
+            // System checkboxes
+            if (ItemList.IsAllowWebBool == true && ItemList.IsAllowCLoverBool == true && ItemList.IsAllowLSDBool == true)
+            {
+                BtnWebChecked = true;
+                BtnLoverChecked = true;
+                BtnLSDChecked = true;
+            }
+            else if (ItemList.IsAllowWebBool == true && ItemList.IsAllowCLoverBool == true)
+            {
+                BtnWebChecked = true;
+                BtnLoverChecked = true;
+            }
+            else if (ItemList.IsAllowWebBool == true && ItemList.IsAllowLSDBool == true)
+            {
+                BtnWebChecked = true;
+                BtnLSDChecked = true;
+            }
+            else if (ItemList.IsAllowCLoverBool == true && ItemList.IsAllowLSDBool == true)
+            {
+                BtnLoverChecked = true;
+                BtnLSDChecked = true;
+            }
+            else if (ItemList.IsAllowWebBool == true)
+                BtnWebChecked = true;
+            else if (ItemList.IsAllowLSDBool == true)
+                BtnLSDChecked = true;
+            else if (ItemList.IsAllowCLoverBool == true)
+                BtnLoverChecked = true;
+
+            // Self Pick Up radio
+            if (ItemList.IsSelfPickUp == true)
+            {
+                BtnYesSelfPickUpChecked = true;
+                BtnNoSelfPickUpChecked = false;
+            }
+            else
+            {
+                BtnYesSelfPickUpChecked = false;
+                BtnNoSelfPickUpChecked = true;
+            }
+
+            // Delivery radio
+            if (ItemList.isDelivery == true)
+            {
+                BtnYesDeliveryChecked = true;
+                BtnNoDeliveryChecked = false;
+            }
+            else
+            {
+                BtnYesDeliveryChecked = false;
+                BtnNoDeliveryChecked = true;
+            }
+
+            // WonderStar
+            if (ItemList.IsAllowWS == true)
+                BtnWSTChecked = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading item code: {ItemCode}", itemCode);
+        }
+    }
+
+    private void ItemGroupTypeChanged(ChangeEventArgs e)
+    {
+        selectedItemGrpID = e.Value?.ToString() ?? "";
+    }
+
+    private void SelfPickUpChanged(bool isYes)
+    {
+        BtnYesSelfPickUpChecked = isYes;
+        BtnNoSelfPickUpChecked = !isYes;
+    }
+
+    private void DeliveryChanged(bool isYes)
+    {
+        BtnYesDeliveryChecked = isYes;
+        BtnNoDeliveryChecked = !isYes;
+    }
+
+    private async Task btnEdit_Click()
+    {
+        try
+        {
+            if (!ValidRequireField())
+                return;
+
+            ItemCode.Utils.LoginInfo li = ItemCode.Utils.SystemSecurity.getSession(HttpContextAccessor.HttpContext, "login") as ItemCode.Utils.LoginInfo;
+            if (li != null)
+            {
+                POSItemGrpCodeD posItemGrpD = new POSItemGrpCodeD();
+                posItemGrpD = GetEditData_SaveItemGrpD(posItemGrpD, li);
+                POSManager pm = new POSManager();
+                if (pm.DoUpdateItemCodeGroupDetail(posItemGrpD))
+                {
+                    string msg = "Item Code Successfully Update <br /><br />";
+                    ShowAlert("<b>" + msg + "</b>", "Update Item Code");
+                    ClearField();
+                }
+                else
+                {
+                    ShowAlert("<b>Failed to Save. Please try again later.</b>", "Failed To Save");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in btnEdit_Click");
+            ShowAlert("<b>An error occurred. Please try again later.</b>", "Error");
+        }
+    }
+
+    private bool ValidRequireField()
+    {
+        bool valid = true;
+        string msg = "";
+
+        if (string.IsNullOrEmpty(txtDesc?.Trim()))
+        {
+            valid = false;
+            msg += "* Please key the Item Desc<br />";
+        }
+
+        if (BtnLSDChecked == true && (BtnWebChecked == true || BtnLoverChecked == true))
+        {
+            valid = false;
+            msg += "* Item Code for LSD must be different with Web &amp; Cuckoo Lover.<br />";
+        }
+
+        if (!valid)
+            ShowAlert("<b>" + msg + "</b>", "New Item Code");
+
+        return valid;
+    }
+
+    private void ClearField()
+    {
+        isFieldsDisabled = true;
+        HiddenFieldName = "";
+    }
+
+    public POSItemGrpCodeD GetEditData_SaveItemGrpD(POSItemGrpCodeD posItemGrpD, ItemCode.Utils.LoginInfo li)
+    {
+        string NowYear = HiddenYear;
+        string NowMonth = HiddenMonth;
+        string NowDay = HiddenDay;
+        string targetFolder = "/CuckooWeb3/UserUpload/" + NowYear + "/" + NowMonth + "/" + NowDay + "/";
+        string ImageFullPath = imageUrl.Replace("https://admin.cuckoo.com.my", " ");
+
+        decimal UnitPrice = 0;
+        decimal UnitTax = 0;
+        decimal TotalPrice = 0;
+
+        if (!string.IsNullOrEmpty(txtItemPrice?.Trim()))
+        {
+            TotalPrice = decimal.Parse(txtItemPrice.Trim());
+            UnitPrice = decimal.Parse(TotalPrice.ToString()) / decimal.Parse("1.00");
+            UnitTax = TotalPrice - UnitPrice;
+        }
+
+        posItemGrpD.ItemCode = txtItemCode;
+        posItemGrpD.POSItemGrpID = !string.IsNullOrEmpty(selectedItemGrpID)
+            ? short.Parse(selectedItemGrpID)
+            : short.Parse(hiddenItemGrpID);
+        posItemGrpD.ItemDesc = txtDesc;
+        posItemGrpD.AccAccountCode = txtACCCode;
+        posItemGrpD.AccTaxCode = txtTaxCode;
+        posItemGrpD.UnitPrice = Convert.ToDecimal(string.Format("{0:0.00}", UnitPrice));
+        posItemGrpD.UnitPriceTax = Convert.ToDecimal(string.Format("{0:0.00}", UnitTax));
+        posItemGrpD.UnitTotalPrice = TotalPrice;
+        posItemGrpD.ItemRemark = txtRemark;
+        posItemGrpD.IsAllowLSD = BtnLSDChecked;
+        posItemGrpD.IsAllowWeb = BtnWebChecked;
+        posItemGrpD.IsAllowCLover = BtnLoverChecked;
+        posItemGrpD.IsSelfPickUp = BtnYesSelfPickUpChecked;
+        posItemGrpD.IsByDelivery = BtnYesDeliveryChecked;
+        posItemGrpD.Enabled = cbEnabled;
+        posItemGrpD.ImageFullPath = !string.IsNullOrEmpty(HiddenFieldName)
+            ? targetFolder + HiddenFieldName
+            : ImageFullPath.TrimStart();
+        posItemGrpD.IsAllowWS = BtnWSTChecked;
+
+        return posItemGrpD;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            selectedFile = e.File;
+            if (selectedFile == null) return;
+
+            if (selectedFile.Size > MaxFileSize)
+            {
+                ShowAlert("<b>File size exceeds the maximum allowed size of 3.5MB.</b>", "File Too Large");
+                return;
+            }
+
+            string NowYear = string.Format("{0:0000}", DateTime.Now.Year);
+            string NowMonth = string.Format("{0:00}", DateTime.Now.Month);
+            string NowDay = string.Format("{0:00}", DateTime.Now.Day);
+            string targetFolder = "/CuckooWeb3/UserUpload/" + NowYear + "/" + NowMonth + "/" + NowDay + "/";
+
+            HiddenDay = NowDay;
+            HiddenMonth = NowMonth;
+            HiddenYear = NowYear;
+
+            string filename = DateTime.Now.ToString("yyyyMMddhhmmssfff") + "_" + selectedFile.Name;
+            HiddenFieldName = filename;
+
+            ItemCode.Utils.LoginInfo li = ItemCode.Utils.SystemSecurity.getSession(HttpContextAccessor.HttpContext, "login") as ItemCode.Utils.LoginInfo;
+            if (li != null)
+            {
+                CloudServerManager.FileManagement cloudManager = new CloudServerManager.FileManagement();
+                using (var formData = new MultipartFormDataContent())
+                {
+                    HttpContent filePathContent = new StringContent(targetFolder);
+                    formData.Add(filePathContent, "filePath");
+
+                    var stream = selectedFile.OpenReadStream(MaxFileSize);
+                    HttpContent fileStreamContent = new StreamContent(stream);
+                    fileStreamContent.Headers.ContentType = new MediaTypeHeaderValue(selectedFile.ContentType);
+                    formData.Add(fileStreamContent, "fileList", filename);
+
+                    ResultJsonTemplate resultJsonTemplate = await cloudManager.fileUpload_formData(li.Username, formData);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error uploading file");
+            ShowAlert("<b>Failed to upload. Please try again later.</b>", "Failed To Upload");
+        }
+    }
+
+    private void ShowAlert(string message, string title)
+    {
+        alertMessage = message;
+        alertTitle = title;
+    }
+
+    private void CloseAlert()
+    {
+        alertMessage = "";
+        alertTitle = "";
+    }
+}
