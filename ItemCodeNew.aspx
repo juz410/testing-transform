@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/MasterPage.master" AutoEventWireup="true" CodeFile="ItemCodeNew.aspx.cs" Inherits="Sales_POS_ItemCode_ItemCodeNew" Async="true"%>
+﻿<%@ Page Title="" Language="C#" MasterPageFile="~/MasterPage.master" AutoEventWireup="true" CodeBehind="ItemCodeNew.aspx.cs" Inherits="ItemCode.Sales_POS_ItemCode_ItemCodeNew" Async="true"%>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="head" runat="Server">
 </asp:Content>

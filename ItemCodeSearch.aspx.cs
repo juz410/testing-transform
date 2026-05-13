@@ -8,7 +8,8 @@ using POS;
 using System.Globalization;
 using Telerik.Web.UI;
 
-
+namespace ItemCode
+{
 public partial class Sales_POS_ItemCode_ItemCodeSearch : System.Web.UI.Page
 {
     DateTime defaultDate = DateTime.ParseExact("01/01/1900", "MM/dd/yyyy", CultureInfo.InvariantCulture);
@@ -145,4 +146,6 @@ public partial class Sales_POS_ItemCode_ItemCodeSearch : System.Web.UI.Page
         txtItemDesc.Text = "";
         cmbItem_Type.ClearCheckedItems();
     }
+}
+
 }

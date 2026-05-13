@@ -6,6 +6,8 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using POS;
 
+namespace ItemCode
+{
 public partial class Sales_POS_ItemCode_ItemCodeViewPopUp : System.Web.UI.Page
 {
     protected void Page_Load(object sender, EventArgs e)
@@ -75,4 +77,6 @@ public partial class Sales_POS_ItemCode_ItemCodeViewPopUp : System.Web.UI.Page
                 ChkDelivery.Checked = false;
         }
     }
+}
+
 }

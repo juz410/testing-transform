@@ -7,6 +7,8 @@ using System.Web.UI.WebControls;
 using Telerik.Web.UI;
 using POS;
 
+namespace ItemCode
+{
 public partial class Sales_POS_ItemCode_ItemBankStockMonitoringEntry : System.Web.UI.Page
 {
     protected void Page_Load(object sender, EventArgs e)
@@ -196,4 +198,6 @@ public partial class Sales_POS_ItemCode_ItemBankStockMonitoringEntry : System.We
             
         }
     }
+}
+
 }

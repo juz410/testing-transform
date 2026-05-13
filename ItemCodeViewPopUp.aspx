@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ItemCodeViewPopUp.aspx.cs" Inherits="Sales_POS_ItemCode_ItemCodeViewPopUp" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="ItemCodeViewPopUp.aspx.cs" Inherits="ItemCode.Sales_POS_ItemCode_ItemCodeViewPopUp" %>
 
 <!DOCTYPE html>
 

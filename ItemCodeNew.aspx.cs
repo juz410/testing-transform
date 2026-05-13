@@ -14,6 +14,8 @@ using System.Net.Http.Headers;
 using CommonCode;
 
 
+namespace ItemCode
+{
 public partial class Sales_POS_ItemCode_ItemCodeNew : System.Web.UI.Page
 {
     DateTime defaultDate = DateTime.ParseExact("01/01/1900", "MM/dd/yyyy", CultureInfo.InvariantCulture);
@@ -292,4 +294,6 @@ public partial class Sales_POS_ItemCode_ItemCodeNew : System.Web.UI.Page
         }
 
     }
+}
+
 }

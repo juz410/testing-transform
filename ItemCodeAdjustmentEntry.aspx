@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ItemCodeAdjustmentEntry.aspx.cs" Inherits="Sales_POS_ItemCode_ItemCodeAdjustmentEntry" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="ItemCodeAdjustmentEntry.aspx.cs" Inherits="ItemCode.Sales_POS_ItemCode_ItemCodeAdjustmentEntry" %>
 
 <!DOCTYPE html>
 

@@ -13,6 +13,8 @@ using System.Net.Http.Headers;
 using CommonCode;
 
 
+namespace ItemCode
+{
 public partial class Sales_POS_ItemCode_ItemCodeEditPopUp : System.Web.UI.Page
 {
     protected void Page_Load(object sender, EventArgs e)
@@ -248,5 +250,7 @@ public partial class Sales_POS_ItemCode_ItemCodeEditPopUp : System.Web.UI.Page
             }
         }
     }
+
+}
 
 }
